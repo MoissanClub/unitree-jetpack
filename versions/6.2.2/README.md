@@ -10,8 +10,8 @@ Select it with `-j 6.2.2`:
 ```
 
 After it boots: user **`unitree` / `123`**, hostname **`ubuntu`**, autologin, wired IP
-**`192.168.123.164`** on `eth0`, WiFi + BT up. The rootfs (APP) partition is a fixed
-**16GiB** (`APP_SIZE` in `version.env`); the rest of the NVMe is left unallocated.
+**`192.168.123.164`** on `eth0`, WiFi + BT up. The rootfs (APP) partition auto-expands
+to fill the NVMe (NVIDIA default; set `APP_SIZE` in `version.env` to pin it instead).
 
 ## Patches — every change in one place
 
