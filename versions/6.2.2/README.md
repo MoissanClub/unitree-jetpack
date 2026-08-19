@@ -29,6 +29,7 @@ and you see the whole patch set. They're sourced with `version.env`, `$LFT` (the
 | step | what it changes |
 |--|--|
 | `10-install-carrier-dtb.sh` | BSP — drop the carrier-patched DTB `tegra234-p3768-0000+p3767-0000-nv.dtb` over the stock one (fixes USB3 wiring so recovery RNDIS + host ports work) |
+| `12-bsp-bpmp-pcie-fix.sh` | BSP/QSPI — install NVIDIA's checksum-pinned replacement T234 BPMP firmware, fixing intermittent PCIe-initialization boot failures during power cycles/reboots (G1 Orin NX selects `TE980M`) |
 | `15-bsp-rootfs-size.sh` | BSP — reduce the fallback `ROOTFSSIZE` from 55GiB to 8GiB; used when `APP_SIZE` is empty |
 | `16-bsp-nvme-data-partition.sh` | BSP — generate `NVME_XML`: stock expanding APP mode, or exact-capacity fixed APP + persistent p16 mode |
 | `17-bsp-nvme-exact-size-guard.sh` | BSP — reject persistent-layout flashes on a different-capacity disk or changed existing p16 geometry before GPT is touched |
@@ -59,6 +60,12 @@ step by editing/dropping a `NN-name.sh` in `patches/` — no edits to the main s
 
 ## Version notes
 
+- **NVIDIA PCIe boot fix:** NVIDIA's R36.5 `overlay_pcie.tbz2` Additional Files archive
+  replaces the T234 production BPMP firmware to fix intermittent Orin Nano/NX boot failures
+  during reboots and power cycles. Patch 12 downloads the archive with a pinned SHA-256 and
+  installs all five SKU images into `Linux_for_Tegra/bootloader`; this G1's P3767-0000 Orin NX
+  selects `bpmp_t234-TE980M-A1_prod.bin`. The firmware is written to QSPI by `flash qspi` or
+  `flash all`; it is deliberately not copied into the Linux rootfs.
 - **Wired NIC is set to `eth0`** in `version.env`, matching the `80-rootfs-ifnames.sh`
   rule and the static NetworkManager profile.
 - **BT**: this version ships its own `rtk_btusb.ko` (built for 5.15.185-tegra) that already
