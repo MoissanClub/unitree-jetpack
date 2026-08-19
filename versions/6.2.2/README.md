@@ -10,8 +10,10 @@ Select it with `-j 6.2.2`:
 ```
 
 After it boots: user **`unitree` / `123`**, hostname **`ubuntu`**, autologin, wired IP
-**`192.168.123.164`** on `eth0`, WiFi + BT up. The rootfs (APP) partition auto-expands
-to fill the NVMe (NVIDIA default; set `APP_SIZE` in `version.env` to pin it instead).
+**`192.168.123.164`** on `eth0`, WiFi + BT up. The rootfs (APP) partition is a fixed
+**16GiB** (`APP_SIZE` in `version.env`); a `data` partition (`/dev/nvme0n1p16`) fills the
+rest of the NVMe, is never written by flashing, and so survives reflashes — format it
+once with `mkfs.ext4 /dev/nvme0n1p16`.
 
 ## Patches — every change in one place
 

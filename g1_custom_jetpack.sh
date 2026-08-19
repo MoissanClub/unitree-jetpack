@@ -405,9 +405,9 @@ cmd_flash() {
     rootfs_unmount
     if [ "$what" = all ]; then
         log "full flash (QSPI + NVMe rootfs) via initrd"
-        # -S caps the APP partition / system.img at APP_SIZE (version.env) instead of the
-        # board default (55GiB + expand-to-fill-disk); it also clears the expand attribute,
-        # so the NVMe space past APP stays unallocated. Unset APP_SIZE -> NVIDIA default.
+        # -S sets the APP partition / system.img size from APP_SIZE (version.env);
+        # unset -> the board conf's ROOTFSSIZE. Partition layout / expand semantics
+        # come from the NVME_XML layout file (see the version's patches).
         local -a sizeargs=(); [ -n "${APP_SIZE:-}" ] && sizeargs=(-S "$APP_SIZE")
         ( cd "$LFT" && $SUDO ./tools/kernel_flash/l4t_initrd_flash.sh \
             --external-device "$ROOT_DEV" \

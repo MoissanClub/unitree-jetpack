@@ -30,8 +30,13 @@ Build/flash custom JetPack images for the Unitree G1 head unit
   `images/external/system.img` is that tarball, despite the name). `system.img`/`.raw`
   in `bootloader/` are host-side intermediates, never written to the NVMe byte-for-byte —
   NVMe writes ≈ rootfs content (~6.5GB) no matter the image size.
-- system.img size defaults to `ROOTFSSIZE` in `p3767.conf.common` (55GiB, patched to
-  8GiB by `patches/15-bsp-rootfs-size.sh`); APP keeps attribute 0x808 and auto-expands
-  to fill the NVMe. Setting `APP_SIZE` in `version.env` passes `-S`, which overrides
-  `ROOTFSSIZE` (CLI parses after the conf is sourced) AND pins APP at that size — no
-  expand, space past APP left unallocated.
+- system.img/APP size: `APP_SIZE` in `version.env` (16GiB) is passed as `-S`, which
+  overrides `ROOTFSSIZE` from `p3767.conf.common` (CLI parses after the conf is
+  sourced) — the 8GiB from `patches/15-bsp-rootfs-size.sh` is only the fallback when
+  `APP_SIZE` is empty.
+- Layout: `patches/16-bsp-nvme-data-partition.sh` generates `flash_l4t_t234_nvme_g1.xml`
+  (= `NVME_XML`): APP pinned at APP_SIZE (attr 0x8), and a `data` partition (id 16 ->
+  /dev/nvme0n1p16, no image) carries the 0x808 expand attribute instead — it grows to
+  fill the NVMe on flash, is never written, and survives reflashes. Note `flash all`
+  still wipes+rewrites the whole GPT every time (`create_gpt` runs `mklabel gpt`); the
+  data partition survives only because the layout recreates identical offsets.
