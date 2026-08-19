@@ -86,12 +86,29 @@ list_versions() { (cd "$VERSIONS" 2>/dev/null && ls -d */ 2>/dev/null | tr -d /)
 load_version() {
     JP="$1"; VDIR="$VERSIONS/$JP"
     [ -f "$VDIR/version.env" ] || die "unknown JetPack '$JP' — available: $(list_versions). Use -j <ver>."
+    # Optional layout settings must not leak if restore switches to another version.
+    unset APP_SIZE EXT_NUM_SECTORS
     # shellcheck source=/dev/null
     source "$VDIR/version.env"
     DOWNLOADS="$HERE/downloads/$JP"
     BSP_PARENT="$HERE/bsp/$JP"
     LFT="$BSP_PARENT/Linux_for_Tegra"
     BR="$LFT/tools/backup_restore"
+}
+
+# Versions that define EXT_NUM_SECTORS use it as an exact external-device geometry,
+# not as a sizing hint. Fail before downloading or deleting/rebuilding a BSP; patches/16
+# repeats the validation where the generated XML is actually created.
+validate_version_config() {
+    [ "${EXT_NUM_SECTORS+x}" = x ] || return 0
+    if [ -n "${APP_SIZE:-}" ] && [ -z "${EXT_NUM_SECTORS:-}" ]; then
+        die "APP_SIZE=$APP_SIZE requires exact EXT_NUM_SECTORS; on the booted G1 run: blockdev --getsz /dev/nvme0n1"
+    fi
+    [ -z "${EXT_NUM_SECTORS:-}" ] && return 0
+    case "$EXT_NUM_SECTORS" in
+        *[!0-9]*) die "EXT_NUM_SECTORS must be a decimal sector count, got: $EXT_NUM_SECTORS" ;;
+    esac
+    [ "$EXT_NUM_SECTORS" -gt 0 ] || die "EXT_NUM_SECTORS must be greater than zero"
 }
 
 # backup/restore are version-agnostic device ops; they only borrow a recovery initrd.
@@ -174,6 +191,7 @@ dl_verify() {  # $1 url  $2 dest — resumable download + 'is it really a tbz2?'
 }
 
 cmd_init() {
+    validate_version_config
     need wget; need tar; need rsync
     mkdir -p "$DOWNLOADS" "$BSP_PARENT"
     local bsp_tb="$DOWNLOADS/jetson_linux_r${L4T_VER}_aarch64.tbz2"
@@ -230,6 +248,7 @@ apply_patches() {
 # With "fresh" (flash only): if any versions/<ver> file is newer than the build
 # marker, rebuild so an edited patch/asset can't be silently flashed from a stale BSP.
 ensure_bsp() {
+    validate_version_config
     if [ ! -f "$LFT/$INIT_MARKER" ]; then
         log "no built BSP for JetPack $JP — running init first"
         cmd_init; return

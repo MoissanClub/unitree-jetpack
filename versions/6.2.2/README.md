@@ -12,8 +12,12 @@ Select it with `-j 6.2.2`:
 After it boots: user **`unitree` / `123`**, hostname **`ubuntu`**, autologin, wired IP
 **`192.168.123.164`** on `eth0`, WiFi + BT up. The rootfs (APP) partition is a fixed
 **16GiB** (`APP_SIZE` in `version.env`); a `data` partition (`/dev/nvme0n1p16`) fills the
-rest of the NVMe, is never written by flashing, and so survives reflashes — format it
-once with `mkfs.ext4 /dev/nvme0n1p16`.
+rest of the NVMe and is skipped during flashing. Before initialization, set the blank
+`EXT_NUM_SECTORS` placeholder to the exact output of
+`blockdev --getsz /dev/nvme0n1` from the G1. Format p16 once with
+`mkfs.ext4 -L models /dev/nvme0n1p16`. Full-flash persistence requires the disk capacity,
+APP size, and layout to remain unchanged; the target-side guard aborts before GPT writes
+if capacity or an existing p16's geometry differs.
 
 ## Patches — every change in one place
 
@@ -25,6 +29,9 @@ and you see the whole patch set. They're sourced with `version.env`, `$LFT` (the
 | step | what it changes |
 |--|--|
 | `10-install-carrier-dtb.sh` | BSP — drop the carrier-patched DTB `tegra234-p3768-0000+p3767-0000-nv.dtb` over the stock one (fixes USB3 wiring so recovery RNDIS + host ports work) |
+| `15-bsp-rootfs-size.sh` | BSP — reduce the fallback `ROOTFSSIZE` from 55GiB to 8GiB; used when `APP_SIZE` is empty |
+| `16-bsp-nvme-data-partition.sh` | BSP — generate `NVME_XML`: stock expanding APP mode, or exact-capacity fixed APP + persistent p16 mode |
+| `17-bsp-nvme-exact-size-guard.sh` | BSP — reject persistent-layout flashes on a different-capacity disk or changed existing p16 geometry before GPT is touched |
 | `20-mb2-eeprom-fix.sh` | BSP — MB2 `cvb_eeprom_read_size -> 0x0` (carrier has no EEPROM); R36 ships 0x100, so this one applies |
 | `30-rootfs-user.sh` | rootfs — user `unitree` / hostname `ubuntu` / autologin, bypass oem-config |
 | `40-rootfs-static-ip.sh` | rootfs — NetworkManager keyfile: `192.168.123.164/24` on **`eth0`** |
@@ -52,9 +59,8 @@ step by editing/dropping a `NN-name.sh` in `patches/` — no edits to the main s
 
 ## Version notes
 
-- **Wired NIC is set to `enP8p1s0`** in `version.env`. If a boot shows the static IP
-  unapplied, the image likely boots `net.ifnames=0` (NIC = `eth0`, as on 5.1.6) — set
-  `NET_IFACE="eth0"` and reflash. Unverified on a 6.2.2 boot.
+- **Wired NIC is set to `eth0`** in `version.env`, matching the `80-rootfs-ifnames.sh`
+  rule and the static NetworkManager profile.
 - **BT**: this version ships its own `rtk_btusb.ko` (built for 5.15.185-tegra) that already
   knows the `0bda:a85b` combo — it does not rely on the stock BSP driver.
 - **Super mode (`--super`) — 100 → [157 TOPS](https://developer.nvidia.com/blog/nvidia-jetpack-6-2-brings-super-mode-to-nvidia-jetson-orin-nano-and-jetson-orin-nx-modules/)

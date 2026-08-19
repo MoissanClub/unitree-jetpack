@@ -34,9 +34,13 @@ Build/flash custom JetPack images for the Unitree G1 head unit
   overrides `ROOTFSSIZE` from `p3767.conf.common` (CLI parses after the conf is
   sourced) — the 8GiB from `patches/15-bsp-rootfs-size.sh` is only the fallback when
   `APP_SIZE` is empty.
-- Layout: `patches/16-bsp-nvme-data-partition.sh` generates `flash_l4t_t234_nvme_g1.xml`
-  (= `NVME_XML`): APP pinned at APP_SIZE (attr 0x8), and a `data` partition (id 16 ->
-  /dev/nvme0n1p16, no image) carries the 0x808 expand attribute instead — it grows to
-  fill the NVMe on flash, is never written, and survives reflashes. Note `flash all`
-  still wipes+rewrites the whole GPT every time (`create_gpt` runs `mklabel gpt`); the
-  data partition survives only because the layout recreates identical offsets.
+- Layout: `patches/16-bsp-nvme-data-partition.sh` generates the G1-specific `NVME_XML`
+  from NVIDIA's pristine XML. With `APP_SIZE` set, it requires the exact target value
+  from `blockdev --getsz /dev/nvme0n1`, pins APP, and adds imageless data p16. The exact
+  capacity places the secondary GPT at the physical disk end instead of NVIDIA's unsafe
+  57GiB nominal boundary. `patches/17-bsp-nvme-exact-size-guard.sh` checks capacity and
+  existing p16 geometry before any GPT write. `EXT_NUM_SECTORS` is intentionally blank
+  until measured, so persistent-data initialization currently refuses to proceed.
+- With `APP_SIZE` empty, patch 16 emits the stock layout: no p16, 8GiB system image, and
+  APP auto-expands to the NVMe end. This is a full-wipe mode. See `NOTES.md` for the mode
+  matrix, partition list, secondary-GPT analysis, and the persistence contract.
