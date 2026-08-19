@@ -50,7 +50,8 @@ onboard WiFi/BT needs an out-of-tree driver. This repo wraps NVIDIA's BSP with t
 fixes plus a few rootfs tweaks, so a single `-j <ver> flash` gives you a working board.
 
 > Everything is flashed **in place over the USB-C cable** — no need to remove the NVMe
-> SSD from the robot. QSPI and the NVMe rootfs are written over the recovery initrd.
+> SSD from the robot. `flash all` writes QSPI + the NVMe rootfs over the recovery initrd;
+> `flash qspi` rewrites only the QSPI bootloader/firmware and leaves the NVMe untouched.
 
 Each image applies a few carrier patches to the **device tree** (USB3 wiring, MB2 boot) and
 the **rootfs** (login user, static IP, WiFi/BT).

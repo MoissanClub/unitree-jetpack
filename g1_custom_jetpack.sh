@@ -25,7 +25,7 @@
 # Options:
 #   --yes           skip the confirmation prompt on destructive operations
 #   --super         (flash/init) use NVIDIA's "Super" board config — MAXN_SUPER + a
-#                   40W power mode. Only versions that define BOARD_CONF_SUPER (7.2).
+#                   40W power mode. Only versions that define BOARD_CONF_SUPER (6.2.2, 7.2).
 #                   Orin NX pulls much more power; confirm the carrier rail + cooling.
 #   -h, --help
 #
@@ -405,15 +405,25 @@ cmd_flash() {
     rootfs_unmount
     if [ "$what" = all ]; then
         log "full flash (QSPI + NVMe rootfs) via initrd"
+        # -S caps the APP partition / system.img at APP_SIZE (version.env) instead of the
+        # board default (55GiB + expand-to-fill-disk); it also clears the expand attribute,
+        # so the NVMe space past APP stays unallocated. Unset APP_SIZE -> NVIDIA default.
+        local -a sizeargs=(); [ -n "${APP_SIZE:-}" ] && sizeargs=(-S "$APP_SIZE")
         ( cd "$LFT" && $SUDO ./tools/kernel_flash/l4t_initrd_flash.sh \
             --external-device "$ROOT_DEV" \
-            -c "$NVME_XML" \
+            -c "$NVME_XML" "${sizeargs[@]}" \
             -p "-c $QSPI_CFG --no-systemimg" \
             --showlogs --network usb0 "$BOARD_CONF" internal )
     else
-        log "QSPI-only flash (bootloader/firmware; rootfs untouched)"
+        log "QSPI-only flash (bootloader/firmware; NVMe untouched)"
+        # --qspi-only is the only correct way here: a top-level -c is consumed only with
+        # --external-device, and without the flag the initrd would try to partition the
+        # (absent) SD card before ever touching QSPI. It trims the flash index to the SPI
+        # rows and skips every non-QSPI step on target; -p keeps image generation on the
+        # pure-QSPI layout so no rootfs/SD images are built.
         ( cd "$LFT" && $SUDO ./tools/kernel_flash/l4t_initrd_flash.sh \
-            -c "$QSPI_CFG" \
+            --qspi-only \
+            -p "-c $QSPI_CFG" \
             --showlogs --network usb0 "$BOARD_CONF" internal )
     fi
     ok "flash '$what' complete"
